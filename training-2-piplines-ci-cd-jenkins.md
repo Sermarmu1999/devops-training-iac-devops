@@ -242,15 +242,14 @@ Tarea:
 - Crea un stage `CD` que haga:
   1) `docker compose up -d`
   2) espera corta (`sleep 5`)
-  3) `curl` al endpoint
-  4) `docker compose down --volumes` (siempre, incluso si falla el curl)
+  3) mostrar logs del contenedor principal (`docker compose logs <servicio>`)
+  4) `docker compose down --volumes` (siempre, incluso si falla el stage)
 
 Pista:
 - Usa `post { always { ... } }` dentro del stage o `try/finally` en un bloque `script`.
 
-Endpoints:
-- Python: `http://localhost:5001/`
-- Java: `http://localhost:8084/hello`
+Nota:
+- En esta práctica no hacemos `curl` al endpoint desde Jenkins. Solo mostramos logs del contenedor para validar el despliegue local.
 
 ### Ejercicio 6.1 - Ejecutar CD por rama o parámetro
 Objetivo: aprender a combinar condiciones de rama y parámetros.
@@ -393,6 +392,15 @@ Validación (Docker Registry local):
 - Comprueba repositorios publicados:
 ```bash
 curl -s http://localhost:5000/v2/_catalog
+```
+
+Validación (JAR en Artifactory):
+```bash
+# Listar el directorio donde Jenkins sube el JAR
+curl -u admin:password "http://artifactory:8081/artifactory/libs-release-local/devops-training-java-app/${BUILD_NUMBER}/"
+
+# Verificar un fichero concreto (ajusta el nombre del JAR)
+curl -I -u admin:password "http://artifactory:8081/artifactory/libs-release-local/devops-training-java-app/${BUILD_NUMBER}/spring-boot-2-hello-world-${VERSION_JAR}.jar"
 ```
 - Comprueba tags de una imagen concreta:
 ```bash

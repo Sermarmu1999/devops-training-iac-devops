@@ -171,6 +171,11 @@ Ventajas de usar runners self-hosted en el curso/empresa
 - **Rendimiento/caché**: caches persistentes (Maven/pip/Docker layers) para builds más rápidos.
 - **Cumplimiento**: integración con redes segregadas, proxies, políticas internas.
 
+<!--
+Nota: en este curso NO trabajaremos con SonarQube en GitLab CI/CD.
+Dejamos la referencia como ejemplo por si quieres incluirlo en tu estrategia.
+-->
+
 Notas de seguridad:
 - Si usas Docker executor y montas `/var/run/docker.sock`, el job tiene mucho poder sobre el host Docker.
 - En entornos reales: usar máquinas dedicadas, aislar runners, rotar tokens y aplicar hardening.
