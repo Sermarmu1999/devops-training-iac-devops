@@ -10,6 +10,36 @@ IMPORTANTE:
 - Conocer la Práctica 2 (CI/CD por stages, Docker, cleanup, ramas).
 - (Opcional) Tener una cuenta de GitLab.com o acceso a un GitLab on-prem.
 
+## Importar y sincronizar repositorios GitLab -> GitHub
+Objetivo: trabajar en GitLab y mantener un espejo en GitHub (o viceversa).
+
+### Opción A (simple): dos remotes en local
+1) Clona el repo de GitLab y añade el remoto de GitHub:
+```bash
+git clone <URL_GITLAB>
+cd <repo>
+git remote add github <URL_GITHUB>
+```
+2) Sube todo a GitHub:
+```bash
+git push github --all
+git push github --tags
+```
+3) Para mantener sincronizado, configura un push dual:
+```bash
+git remote set-url --add --push origin <URL_GITLAB>
+git remote set-url --add --push origin <URL_GITHUB>
+```
+Con esto, cada `git push` enviará cambios a GitLab y GitHub.
+
+### Opción B (recomendada en equipos): GitLab Push Mirror hacia GitHub
+Usa la funcionalidad de **Repository Mirroring** en GitLab para empujar cada cambio a GitHub.
+Necesitas un **Personal Access Token** de GitHub con permisos de repo.
+
+### Opción C (alternativa): workflow en GitHub que haga pull desde GitLab
+Puedes crear un workflow programado en GitHub que haga `git pull` desde GitLab y haga `push` a GitHub.
+Útil si GitHub es el “espejo” y GitLab es la fuente de verdad.
+
 ## Por qué hay que crear repositorios desde cero en GitLab
 En el curso partimos de repositorios en GitHub. Para usar GitLab CI/CD, asumimos que:
 - Vas a crear **nuevos repositorios Git en GitLab** (vacíos).
@@ -59,9 +89,10 @@ Reglas:
 - **CD** solo se ejecuta si la rama es `develop` o `master`.
 
 ## Punto de partida: pipeline dummy (010)
-En cada repo (Python/Java) crea dos ficheros de referencia:
+En cada repo (Python/Java) crea tres ficheros de referencia:
 - `.gitlab/gitlab-ci-dummy.yml` (plantilla inicial)
 - `.gitlab/gitlab-ci-template.yml` (estructura final / guía, sin “código copiable”)
+- `.gitlab/gitlab-ci-template-full.yml` (estructura completa con TODOs y opcionales)
 
 El fichero real que ejecuta GitLab CI/CD es:
 - `.gitlab-ci.yml`
@@ -89,8 +120,10 @@ Objetivo: aprender a definir variables y usar las predefinidas de GitLab.
 
 Tarea:
 - Define variables globales:
-  - `IMAGE_NAME`
-  - `APP_URL`
+  - `IMAGE_REPO`
+  - `REGISTRY_HOST`
+  - `REGISTRY_REPO`
+  - `COMPOSE_SERVICE`
 - Imprime en logs:
   - `$CI_COMMIT_BRANCH`
   - `$CI_COMMIT_SHA`
@@ -102,14 +135,17 @@ Referencia:
 Objetivo: ejecutar jobs en contenedores (similar a Jenkins agent docker / GHA container jobs).
 
 Tarea:
-- Python: job que use `image: python:3.6-slim` y ejecute tests.
-- Java: jobs que usen `image: maven:3.8.6-openjdk-11-slim` y ejecuten `make lint` y `make test`.
+- Construye una imagen de CI desde `devops/ci.Dockerfile` (Python/Java).
+- Ejecuta `make lint` y `make test` dentro de esa imagen con `docker run`.
+
+Nota:
+- Para esto necesitas Docker-in-Docker (`services: [docker:dind]`) o un runner con Docker disponible.
 
 ### Ejercicio 4 - Build de imagen Docker en CI
 Objetivo: construir la imagen Docker del repo.
 
 Tarea:
-- Añade un job `ci:build-image` que ejecute `docker build`.
+- Añade un job `ci:build` que ejecute `docker build`.
 
 Nota:
 - Para construir imágenes con Docker dentro de GitLab CI normalmente necesitas:
@@ -125,6 +161,11 @@ Objetivo: simular despliegue por entornos con reglas.
 Tarea:
 - Crea un stage `cd` y un job `cd:deploy` que solo ejecute cuando la rama sea:
   - `develop` o `master`
+  - o cuando `RUN_CD == "true"` (variable manual de pipeline)
+- Asigna `environment` dinámico:
+  - `master` -> `PRO`
+  - resto -> `DEV`
+  - (Pista: usa `rules:` con `variables:` y `environment: name: $ENV_NAME`)
 
 Pista:
 - Usa `rules:` con `if:`.
@@ -138,8 +179,14 @@ Objetivo: simular CD (up -> e2e -> down).
 Tarea:
 - En `cd:deploy`, ejecuta:
   - `docker compose up -d`
-  - `curl` a `APP_URL`
+  - mostrar logs del contenedor principal
   - cleanup (siempre) con `after_script:`
+
+Nota importante:
+- Solución correcta (real): CD debería **usar la imagen publicada en el registry** (docker pull).
+- En runners GitLab shared, el registry local no está disponible: se **simula** con build local.
+- Esto mantiene CI y CD asíncronos, pero el deploy consume una imagen reconstruida localmente.
+  Si usas runner self-hosted con acceso al registry, sustituye build por pull.
 
 Referencia:
 - `after_script`: https://docs.gitlab.com/ee/ci/yaml/#after_script
@@ -153,9 +200,30 @@ Dónde:
 Recomendación:
 - Usa variables “Masked” para secretos.
 - Usa variables “Protected” para que solo se expongan en ramas protegidas (por ejemplo `master`).
+- Usa **Environment scope** para separar DEV/PRO (por ejemplo `DEV` y `PRO`).
 
 Referencia:
 - https://docs.gitlab.com/ee/ci/variables/
+
+## Opcionales
+
+### Opcional A - Push a un registry
+Objetivo: publicar la imagen construida en un registry.
+
+Notas:
+- En GitLab, el registry más directo es el **Container Registry** del propio GitLab.
+- Si usas un registry local, necesitas runner self-hosted en tu red.
+
+### Opcional B (Java) - Subir el `.jar` a Artifactory con `curl`
+Igual que en Práctica 2/3, usando variables/secrets de GitLab.
+
+### Opcional C - Librería común (include)
+Objetivo: reutilizar bloques de pipeline entre Python y Java.
+
+Idea:
+- Crear un fichero común en IaC, por ejemplo `.gitlab/ci-common.yml`
+- Incluirlo en `.gitlab-ci.yml` con `include:`
+- Usar `extends:` y anchors para evitar duplicación
 
 ## GitLab Runners (igual que el runner self-hosted de GitHub Actions)
 Un **GitLab Runner** es el componente que ejecuta los jobs de CI/CD. Sin runner, GitLab no puede correr tu pipeline.
@@ -241,7 +309,7 @@ Cuando registras el runner puedes asignar **tags** (por ejemplo `local`, `docker
 
 En tu job:
 ```yaml
-ci:build-image:
+ci:build:
   stage: ci
   tags: [local, docker]
   image: docker:27
@@ -271,4 +339,5 @@ Referencias:
   - variables y reglas por rama
   - cleanup con `after_script`
 - Alternativamente (si no ejecutas):
-  - `.gitlab/gitlab-ci-dummy.yml` y `.gitlab/gitlab-ci-template.yml` + `.gitlab-ci.yml` con la estructura final comentada
+  - `.gitlab/gitlab-ci-dummy.yml`, `.gitlab/gitlab-ci-template.yml` y `.gitlab/gitlab-ci-template-full.yml`
+    + `.gitlab-ci.yml` con la estructura final comentada

@@ -56,16 +56,16 @@ Reglas:
 
 ## Punto de partida: workflow dummy (010)
 En cada repo de proyecto (Python/Java) tienes ficheros de referencia:
-- `.github/workflows/workflow-dummy.yml` (plantilla inicial)
-- `.github/workflows/workflow-template.yml` (estructura final / guía, sin “código copiable”)
-- `.github/workflows/workflow-template-full.yml` (estructura completa con TODOs y opcionales)
+- `.github/workflows/workflow-dummy.yml.template` (plantilla inicial)
+- `.github/workflows/workflow.yml.template` (estructura final / guía, sin “código copiable”)
+- `.github/workflows/workflow-full.yml.template` (estructura completa con TODOs y opcionales)
 
 Tu fichero “real” para que GitHub lo ejecute debe ser:
 - `.github/workflows/ci.yml`
 
 Ejercicio 0 (setup):
 1) Crea la carpeta `.github/workflows/` (si no existe).
-2) Copia `.github/workflows/workflow-dummy.yml` a `.github/workflows/ci.yml`.
+2) Copia `.github/workflows/workflow-dummy.yml.template` a `.github/workflows/ci.yml`.
 3) Haz commit y push. Comprueba en GitHub:
    - Actions -> workflow ejecutado
 
@@ -137,21 +137,37 @@ Qué documentar en el repo (README o en esta práctica):
   - Settings -> Secrets and variables -> Actions -> **Variables**
 - Secrets:
   - Settings -> Secrets and variables -> Actions -> **Secrets**
+- Environments (recomendado en este curso):
+  - Settings -> Environments -> **New environment**
+  - Crea `DEV` y `PRO`
+  - En cada environment:
+    - Añade **Environment variables** y **Environment secrets**
+    - (Opcional) añade protection rules si quieres aprobaciones manuales
 - Niveles:
   - **Repository**: aplica a todos los workflows del repo.
   - **Environment**: aplica solo cuando el job usa `environment:` (permite protecciones).
   - **Organization** (si aplica): centraliza para muchos repos.
 
-Tarea:
-1) Crea variables (Repository variables), por ejemplo:
+Tarea (usando Environments):
+1) Crea environments `DEV` y `PRO`:
+   - Settings -> Environments -> New environment
+2) Dentro de cada environment crea variables, por ejemplo:
    - `REGISTRY_HOST` (ej. `local-registry:5000` o `ghcr.io`)
    - `ARTIFACTORY_URL` (ej. `http://artifactory:8081/artifactory`)
-2) Crea secrets (Repository secrets), por ejemplo:
+3) Dentro de cada environment crea secrets, por ejemplo:
    - `REGISTRY_USER`, `REGISTRY_PASSWORD`
    - `ARTIFACTORY_USER`, `ARTIFACTORY_PASSWORD` (o token)
-3) En el workflow, úsalo así:
+4) En el workflow, declara el environment en el job:
+   - `environment: DEV` o `environment: PRO`
+   - Recomendado: seleccionar dinámicamente según rama:
+     - `environment: ${{ github.ref_name == 'master' && 'PRO' || 'DEV' }}`
+5) En el workflow, referencia así:
    - Variables: `${{ vars.REGISTRY_HOST }}` / `${{ vars.ARTIFACTORY_URL }}`
    - Secrets: `${{ secrets.REGISTRY_PASSWORD }}`
+
+Notas:
+- Si no quieres usar environments, puedes crear variables/secrets a nivel Repository.
+- Las variables/secretos de Environment solo están disponibles si el job define `environment:`.
 
 Notas importantes (seguridad):
 - Los secrets se enmascaran en logs, pero no imprimas secretos deliberadamente.
@@ -160,6 +176,21 @@ Notas importantes (seguridad):
 Referencia:
 - https://docs.github.com/actions/security-guides/encrypted-secrets
 - https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment
+
+Nota equivalente en Azure DevOps (para práctica 5):
+- Crear variables:
+  - Pipeline -> Edit -> Variables (UI) o en YAML con `variables:`
+  - Variable Groups: Pipelines -> Library -> Variable groups
+- Referenciar variables en YAML:
+  - En scripts: `$(VAR_NAME)`
+  - En `env:`: `VAR_NAME: $(VAR_NAME)`
+- Variables secretas:
+  - Marca como secret en UI o en Variable Group
+  - Se enmascaran en logs por defecto
+
+Referencias Azure DevOps:
+- https://learn.microsoft.com/azure/devops/pipelines/process/variables
+- https://learn.microsoft.com/azure/devops/pipelines/library/variable-groups
 
 ### Ejercicio 6 - Docker como agente: job en contenedor
 Objetivo: ejecutar CI dentro de un contenedor, igual que hacíamos con `agent docker` en Jenkins.
@@ -225,16 +256,42 @@ Igual que en Práctica 2, pero ejecutándolo desde un step de GitHub Actions usa
 Objetivo: reutilizar pasos comunes entre Python y Java.
 
 Tarea:
-1) Crea una acción compuesta en el repo IaC:
-   - Ruta sugerida: `.github/actions/devops-lib/action.yml`
+1) usando una acción compuesta en el repo IaC:
+   - Ruta: `.github/actions/devops-lib/action.yml`
 2) Encapsula al menos:
    - Build de la imagen de CI (`devops/ci.Dockerfile`)
    - Ejecución de comandos dentro de esa imagen
 3) Usa esa acción en los workflows de Python y Java (opcional):
    - `uses: <org>/devops-training-iac-devops/.github/actions/devops-lib@<ref>`
 
-Nota:
-- Mantén esta librería como opcional para que el alumno pueda decidir si refactoriza o no.
+Configuración en GitHub (librería común):
+1) Publica el repo IaC con la acción compuesta en una rama o tag estable:
+   - Recomendado: crear un tag (ej. `v1.0.0`) o usar una rama específica (`main`/`develop`).
+2) En el repo consumidor (Python/Java), referencia la acción:
+   - `uses: <org>/devops-training-iac-devops/.github/actions/devops-lib@<ref>`
+   - `@<ref>` debe ser un tag o branch existente.
+3) Verifica permisos:
+   - Actions -> General -> Workflow permissions: `Read repository contents`
+   - Si el repo IaC es privado, el repo consumidor debe tener acceso (mismo org o permisos explícitos).
+
+Gestión de variables de entorno y secretos:
+- Variables (Actions -> Variables):
+  - Settings -> Secrets and variables -> Actions -> Variables
+  - Usa `${{ vars.VAR_NAME }}` en el workflow.
+  - Útil para `REGISTRY_HOST`, `ARTIFACTORY_URL`, `REGISTRY_REPO`, etc.
+- Secrets (Actions -> Secrets):
+  - Settings -> Secrets and variables -> Actions -> Secrets
+  - Usa `${{ secrets.SECRET_NAME }}` en el workflow.
+  - Útil para `REGISTRY_USER`, `REGISTRY_PASSWORD`, `ARTIFACTORY_USER`, `ARTIFACTORY_PASSWORD`.
+- Scope recomendado:
+  - Repository: para prácticas del curso.
+  - Environment: si quieres diferenciar DEV/PRO con aprobaciones.
+
+Referencias oficiales:
+- Reusable workflows/composite actions: https://docs.github.com/actions/creating-actions/creating-a-composite-action
+- Sharing actions in a repo: https://docs.github.com/actions/creating-actions/sharing-actions
+- Variables: https://docs.github.com/actions/learn-github-actions/variables
+- Secrets: https://docs.github.com/actions/security-guides/encrypted-secrets
 
 ## Ejercicio final - Runner self-hosted en local con Docker Compose (on-prem)
 Objetivo: ejecutar workflows de GitHub Actions **desde tu máquina/red** para tener conectividad con:
