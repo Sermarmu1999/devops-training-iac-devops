@@ -29,12 +29,36 @@ Simulamos 2 entornos:
 
 Reglas:
 - **CI** se ejecuta en cualquier rama.
-- **CD** solo se ejecuta si la rama es `develop` o `master` y el parámetro `RUN_CD` está activo.
+- **CD** se ejecuta si:
+  - `RUN_CD=true` (en cualquier rama), **o**
+  - la rama es `develop` o `master` (aunque `RUN_CD=false`).
+
+## Qué vas a construir (resultado final)
+
+### Pipeline Python
+- CI
+  - Ejecutar `make lint` en un contenedor `python:3.6-slim` (imagen de CI desde `devops/ci.Dockerfile`).
+  - Ejecutar tests unitarios en el mismo contenedor.
+  - Construir la imagen Docker de la app (sin push).
+- CD
+  - Levantar BBDD + App con Docker Compose en el runner.
+  - Mostrar logs del contenedor principal.
+  - Limpiar recursos con `docker compose down --volumes`.
+
+### Pipeline Java
+- CI
+  - Ejecutar `make lint` y `make test` en un contenedor `maven:3.8.6-openjdk-11-slim` (imagen de CI desde `devops/ci.Dockerfile`).
+  - Construir la imagen Docker de la app (sin push).
+- CD
+  - Levantar App con Docker Compose en el runner.
+  - Mostrar logs del contenedor principal.
+  - Limpiar recursos con `docker compose down --volumes`.
 
 ## Punto de partida: workflow dummy (010)
 En cada repo de proyecto (Python/Java) tienes ficheros de referencia:
 - `.github/workflows/workflow-dummy.yml` (plantilla inicial)
 - `.github/workflows/workflow-template.yml` (estructura final / guía, sin “código copiable”)
+- `.github/workflows/workflow-template-full.yml` (estructura completa con TODOs y opcionales)
 
 Tu fichero “real” para que GitHub lo ejecute debe ser:
 - `.github/workflows/ci.yml`
@@ -141,11 +165,11 @@ Referencia:
 Objetivo: ejecutar CI dentro de un contenedor, igual que hacíamos con `agent docker` en Jenkins.
 
 Tarea:
-- Python: ejecuta tests dentro de `python:3.6-slim`.
-- Java: ejecuta `make lint` y `make test` dentro de `maven:3.8.6-openjdk-11-slim`.
+- Python: construye una imagen de CI (`devops/ci.Dockerfile`) y ejecuta `make lint`/`make test` dentro de esa imagen.
+- Java: construye una imagen de CI (`devops/ci.Dockerfile`) y ejecuta `make lint`/`make test` dentro de esa imagen.
 
 Pista:
-- En GitHub Actions puedes usar `container:` a nivel de job.
+- En GitHub Actions puedes usar `container:` a nivel de job o ejecutar `docker run` con la imagen de CI.
 
 Referencia:
 - https://docs.github.com/actions/using-jobs/running-jobs-in-a-container
@@ -160,9 +184,9 @@ Tarea:
 Objetivo: simular despliegue por entornos.
 
 Tarea:
-- Crea un job `cd` (o stage equivalente) que solo se ejecute si:
-  - `github.ref_name` es `develop` o `master`, y
-  - `inputs.RUN_CD == true` (workflow dispatch)
+- Crea un job `cd` (o stage equivalente) que se ejecute si:
+  - `inputs.RUN_CD == true` (workflow dispatch), **o**
+  - `github.ref_name` es `develop` o `master`
 
 Pista:
 - Usa `if:` a nivel de job.
@@ -173,7 +197,7 @@ Referencia:
 ### Ejercicio 9 - Simulación de despliegue con Docker Compose + cleanup
 Objetivo: simular CD en un runner efímero:
 1) `docker compose up -d`
-2) test e2e con `curl`
+2) mostrar logs del contenedor principal
 3) cleanup siempre, aunque falle
 
 Tarea:
@@ -196,6 +220,21 @@ Referencia:
 
 ### Opcional B (Java) - Subir el `.jar` a Artifactory con `curl` (sin plugin)
 Igual que en Práctica 2, pero ejecutándolo desde un step de GitHub Actions usando secretos.
+
+### Opcional C - Librería común (composite action) en repo IaC
+Objetivo: reutilizar pasos comunes entre Python y Java.
+
+Tarea:
+1) Crea una acción compuesta en el repo IaC:
+   - Ruta sugerida: `.github/actions/devops-lib/action.yml`
+2) Encapsula al menos:
+   - Build de la imagen de CI (`devops/ci.Dockerfile`)
+   - Ejecución de comandos dentro de esa imagen
+3) Usa esa acción en los workflows de Python y Java (opcional):
+   - `uses: <org>/devops-training-iac-devops/.github/actions/devops-lib@<ref>`
+
+Nota:
+- Mantén esta librería como opcional para que el alumno pueda decidir si refactoriza o no.
 
 ## Ejercicio final - Runner self-hosted en local con Docker Compose (on-prem)
 Objetivo: ejecutar workflows de GitHub Actions **desde tu máquina/red** para tener conectividad con:
