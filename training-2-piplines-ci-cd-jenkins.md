@@ -81,6 +81,7 @@ Regla principal del curso:
 
 ### Pipeline Python
 - CI
+  - Ejecutar `make lint` en un contenedor `python:3.6-slim`.
   - Ejecutar tests unitarios en un contenedor `python:3.6-slim`.
   - Construir la imagen Docker de la app (sin push).
 - CD
@@ -176,6 +177,37 @@ Objetivo: entender por qué dividimos stages: feedback rápido y fallos más cla
 Java:
 - Crea un stage `Lint` que ejecute `make lint` en `maven:3.8.6-openjdk-11-slim`.
 - Mantén `Test` para `make test`.
+
+Python:
+- Crea una imagen de CI (`devops/ci.Dockerfile`) para tener `make` disponible en los stages.
+- Crea un stage `Lint` que ejecute `make lint` en `python:3.6-slim`.
+- Mantén `Test` para tests unitarios (por ejemplo, `pytest -q`).
+- Usa esa imagen de CI construida en ambos stages (`Lint` y `Test`).
+- Instala también en el contenedor las dependencias de lint que no están en `requirements.txt`:
+  - `pip install -r requirements.txt flake8 mypy`
+
+Nota docente (Python):
+- La primera ejecución del stage `Lint` puede fallar por formato (`black --check`).
+- Captura de referencia del error:
+
+![Error CI Lint Python](make-lint-error.png)
+
+- El flujo esperado para corregirlo es:
+  1) crear una rama `fix/lint`
+  2) ejecutar `make reformat` en local
+  3) hacer commit y push de los cambios de formato
+  4) abrir PR `fix/lint -> develop` y mergear
+  5) Revisar nueva ejecución de Jenkins en `develop`
+
+### Ejercicio 3.1 - Corregir Lint con rama fix y PR a `develop`
+Objetivo: aplicar Gitflow cuando falla calidad en CI sin romper la rama de integración.
+
+Tarea (Python):
+1) Crea la rama `fix/lint` desde tu rama de trabajo.
+2) Corrige formato y vuelve a ejecutar lint en local (`make reformat` + `make lint`).
+3) Sube la rama `fix/lint` al remoto.
+4) Abre una PR hacia `develop`.
+5) Haz merge de la PR y verifica que Jenkins pasa en `develop`.
 
 Qué es un Makefile (explicación corta):
 - Un Makefile es un “lanzador de tareas” con objetivos (targets).
