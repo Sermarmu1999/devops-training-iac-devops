@@ -89,10 +89,15 @@ Reglas:
 - **CD** solo se ejecuta si la rama es `develop` o `master`.
 
 ## Punto de partida: pipeline dummy (010)
-En cada repo (Python/Java) crea tres ficheros de referencia:
+En cada repo (Python/Java) crea cuatro ficheros de referencia:
 - `.gitlab/gitlab-ci-dummy.yml` (plantilla inicial)
 - `.gitlab/gitlab-ci-template.yml` (estructura final / guía, sin “código copiable”)
-- `.gitlab/gitlab-ci-template-full.yml` (estructura completa con TODOs y opcionales)
+- `.gitlab/gitlab-ci-template-full.yml` (SaaS en cloud usando servicios nativos de GitLab)
+- `.gitlab/gitlab-ci-template-full-local.yml` (runner local con registry/Artifactory locales)
+
+Nota:
+- Usa `gitlab-ci-template-full.yml` si el pipeline se ejecuta en GitLab SaaS (registry/package registry nativos).
+- Usa `gitlab-ci-template-full-local.yml` si ejecutas el pipeline con runner local y servicios on-prem.
 
 El fichero real que ejecuta GitLab CI/CD es:
 - `.gitlab-ci.yml`
@@ -197,13 +202,58 @@ Objetivo: entender dónde se guardan y cómo se protegen.
 Dónde:
 - Settings -> CI/CD -> Variables
 
+![GitLab variables configuration](gitlab-configure-env-vars.png)
+
 Recomendación:
 - Usa variables “Masked” para secretos.
 - Usa variables “Protected” para que solo se expongan en ramas protegidas (por ejemplo `master`).
 - Usa **Environment scope** para separar DEV/PRO (por ejemplo `DEV` y `PRO`).
 
+Importante:
+- Las variables/secrets son **por proyecto** en GitLab. Debes crearlas en **cada repo** (Python y Java) para que los pipelines funcionen.
+
 Referencia:
 - https://docs.gitlab.com/ee/ci/variables/
+
+### Variables necesarias (por proyecto)
+Estas variables/secrets son **por proyecto**. Debes crearlas en **cada repo** (Python y Java).
+
+#### SaaS (GitLab Container/Package Registry)
+Python (`.gitlab-ci-saas.yml`):
+- `IMAGE_REPO` (ej. `contrerasadr/devops-training-python-app`)
+- `ENABLE_REGISTRY_PUSH` (`true|false`)
+- `RUN_CD` (`true|false`)
+
+Java (`.gitlab-ci-saas.yml`):
+- `IMAGE_REPO` (ej. `scalian_training-java-hello-world`)
+- `ENABLE_REGISTRY_PUSH` (`true|false`)
+- `ENABLE_PACKAGE_UPLOAD` (`true|false`)
+- `RUN_CD` (`true|false`)
+
+Notas:
+- No necesitas `REGISTRY_*` ni `ARTIFACTORY_*` en SaaS.
+- GitLab expone `CI_REGISTRY`, `CI_REGISTRY_USER`, `CI_REGISTRY_PASSWORD` y `CI_JOB_TOKEN` automáticamente.
+
+#### Local (runner local + servicios on‑prem)
+Python (`.gitlab-ci-local.yml`):
+- `IMAGE_REPO`
+- `REGISTRY_HOST` (ej. `local-registry:5000`)
+- `REGISTRY_REPO`
+- `REGISTRY_USER`, `REGISTRY_PASSWORD`
+- `ENABLE_REGISTRY_PUSH` (`true|false`)
+- `RUN_CD` (`true|false`)
+
+Java (`.gitlab-ci-local.yml`):
+- `IMAGE_REPO`
+- `REGISTRY_HOST` (ej. `local-registry:5000`)
+- `REGISTRY_REPO`
+- `REGISTRY_USER`, `REGISTRY_PASSWORD`
+- `ARTIFACTORY_URL` (ej. `http://artifactory:8081/artifactory`)
+- `ARTIFACTORY_REPO` (ej. `libs-release-local`)
+- `ARTIFACTORY_USER`, `ARTIFACTORY_PASSWORD`
+- `ENABLE_REGISTRY_PUSH` (`true|false`)
+- `ENABLE_ARTIFACTORY_UPLOAD` (`true|false`)
+- `RUN_CD` (`true|false`)
 
 ## Opcionales
 
@@ -211,7 +261,8 @@ Referencia:
 Objetivo: publicar la imagen construida en un registry.
 
 Notas:
-- En GitLab, el registry más directo es el **Container Registry** del propio GitLab.
+- En GitLab, el registry más directo es el **Container Registry** del propio GitLab (servicio nativo).
+- GitLab también ofrece **Package Registry** para binarios (por ejemplo JARs).
 - Si usas un registry local, necesitas runner self-hosted en tu red.
 
 ### Opcional B (Java) - Subir el `.jar` a Artifactory con `curl`
@@ -224,6 +275,14 @@ Idea:
 - Crear un fichero común en IaC, por ejemplo `.gitlab/ci-common.yml`
 - Incluirlo en `.gitlab-ci.yml` con `include:`
 - Usar `extends:` y anchors para evitar duplicación
+
+### Opcional D - Usar servicios nativos de GitLab (SaaS)
+Objetivo: usar **GitLab Container Registry** y **Package Registry** en lugar de servicios locales.
+
+Qué cambia:
+- Container Registry sustituye a `local-registry`.
+- Package Registry sustituye a Artifactory para subir el `.jar`.
+- Esto solo funciona si el pipeline corre en GitLab SaaS o en GitLab con acceso al registry del propio GitLab.
 
 ## GitLab Runners (igual que el runner self-hosted de GitHub Actions)
 Un **GitLab Runner** es el componente que ejecuta los jobs de CI/CD. Sin runner, GitLab no puede correr tu pipeline.
@@ -339,5 +398,11 @@ Referencias:
   - variables y reglas por rama
   - cleanup con `after_script`
 - Alternativamente (si no ejecutas):
-  - `.gitlab/gitlab-ci-dummy.yml`, `.gitlab/gitlab-ci-template.yml` y `.gitlab/gitlab-ci-template-full.yml`
+  - `.gitlab/gitlab-ci-dummy.yml`, `.gitlab/gitlab-ci-template.yml`,
+    `.gitlab/gitlab-ci-template-full.yml` y `.gitlab/gitlab-ci-template-full-local.yml`
     + `.gitlab-ci.yml` con la estructura final comentada
+
+En repos `-solution` existen dos soluciones finales:
+- `.gitlab-ci-saas.yml` (SaaS con registries nativos)
+- `.gitlab-ci-local.yml` (runner local con servicios locales)
+Renombra el fichero que quieras usar a `.gitlab-ci.yml`.

@@ -165,6 +165,9 @@ Tarea (usando Environments):
    - Variables: `${{ vars.REGISTRY_HOST }}` / `${{ vars.ARTIFACTORY_URL }}`
    - Secrets: `${{ secrets.REGISTRY_PASSWORD }}`
 
+Importante:
+- Estas variables/secrets son **por repositorio**. Debes crearlas en **cada proyecto** (Python y Java) para que los workflows funcionen.
+
 Notas:
 - Si no quieres usar environments, puedes crear variables/secrets a nivel Repository.
 - Las variables/secretos de Environment solo están disponibles si el job define `environment:`.
