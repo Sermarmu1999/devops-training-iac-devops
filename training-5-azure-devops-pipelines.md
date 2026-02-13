@@ -106,9 +106,9 @@ Objetivo: centralizar variables de entorno en **Pipelines -> Library** y reutili
 
 Tarea:
 1) Crear Variable Groups recomendados:
-- `azdevops-python-saas`
-- `azdevops-python-local`
-- `azdevops-java-saas`
+- `devops-training-python-saas`
+- `devops-training-python-local`
+- `devops-training-java-saas`
 - `azdevops-java-local`
 2) Mover a esos grupos todas las variables de entorno del pipeline (repositorio, registry, credenciales, pool, etc.).
 3) Marcar credenciales como secret.
@@ -116,7 +116,7 @@ Tarea:
 5) Referenciarlos en YAML con:
 ```yaml
 variables:
-  - group: azdevops-python-saas
+  - group: devops-training-python-saas
 ```
 
 Notas:
@@ -283,14 +283,14 @@ Estas variables son por proyecto/pipeline. Debes crearlas en Python y Java.
 
 #### SaaS (Docker Hub + Azure Artifacts)
 Variable group recomendado para Python:
-- `azdevops-python-saas`
+- `devops-training-python-saas`
 - Variables:
   - `IMAGE_REPO` (ej. `contrerasadr/devops-training-python-app`)
   - `DOCKERHUB_REPO` (ej. `contrerasadr/devops-training-python-app`)
   - `DOCKERHUB_USERNAME`, `DOCKERHUB_PASSWORD` (secret)
 
 Variable group recomendado para Java:
-- `azdevops-java-saas`
+- `devops-training-java-saas`
 - Variables:
   - `IMAGE_REPO` (ej. `contrerasadr/devops-training-java-app`)
   - `DOCKERHUB_REPO` (ej. `contrerasadr/devops-training-java-app`)
@@ -301,7 +301,7 @@ Variable group recomendado para Java:
 
 #### Local (pool self-hosted + servicios locales)
 Variable group recomendado para Python:
-- `azdevops-python-local`
+- `devops-training-python-local`
 - Variables:
   - `AZP_POOL` (ej. `local-docker`)
   - `IMAGE_REPO`
