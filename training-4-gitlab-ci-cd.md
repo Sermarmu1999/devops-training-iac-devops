@@ -317,50 +317,30 @@ En GitLab (UI):
   - URL de GitLab (por ejemplo `https://gitlab.com/` o tu GitLab on-prem)
   - Token de registro (registration token)
 
-### Paso 2 - Registrar el runner (Docker)
-Ejecuta una vez (en tu máquina):
+### Paso 2 - Usar el runner ya incluido en el stack IaC
+En `devops-training-iac-devops/docker-compose.yml` ya existe el servicio `gitlab-runner` con perfil opcional `gitlab-runner`.
+Ese servicio:
+- registra el runner automáticamente al arrancar (si no existe `config.toml`),
+- usa executor Docker,
+- monta `/var/run/docker.sock` para jobs con Docker.
+
+Variables necesarias:
+- `GITLAB_URL` (ej. `https://gitlab.com`)
+- `GITLAB_REGISTRATION_TOKEN`
+- `GITLAB_RUNNER_NAME` (opcional)
+- `GITLAB_RUNNER_TAGS` (opcional, recomendado `local,docker`)
+- `GITLAB_DOCKER_IMAGE` (opcional, default `docker:27`)
+
+Plantilla incluida:
+- `devops-training-iac-devops/.env.gitlab-runner.example`
+
+### Paso 3 - Arrancar el runner desde Docker Compose
+Desde `devops-training-iac-devops/`:
 ```bash
-docker run --rm -it \
-  -v gitlab-runner-config:/etc/gitlab-runner \
-  gitlab/gitlab-runner:alpine \
-  register
-```
-
-Durante el asistente:
-- URL: la de tu GitLab
-- Token: el registration token del proyecto/grupo
-- Executor: `docker`
-- Default image: `alpine:3.19` (o la que uses en CI)
-
-### Paso 3 - Ejecutar el runner como servicio (Docker Compose)
-Crea un fichero `docker-compose.gitlab-runner.yml` (por ejemplo en el repo IaC o en tu entorno local):
-```yaml
-version: "3.8"
-
-services:
-  gitlab-runner:
-    image: gitlab/gitlab-runner:alpine
-    restart: unless-stopped
-    volumes:
-      - gitlab-runner-config:/etc/gitlab-runner
-      # Permite ejecutar docker/docker compose desde los jobs (Docker executor + docker.sock)
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - devops_training_net
-
-volumes:
-  gitlab-runner-config:
-
-networks:
-  # Reutiliza la red donde viven registry/artifactory en tu stack IaC (ajusta el nombre si cambia)
-  devops_training_net:
-    external: true
-```
-
-Arranque:
-```bash
-docker compose -f docker-compose.gitlab-runner.yml up -d
-docker compose -f docker-compose.gitlab-runner.yml logs -f
+cp .env.gitlab-runner.example .env.gitlab-runner
+# Edita .env.gitlab-runner con valores reales
+docker compose --env-file .env.gitlab-runner --profile gitlab-runner up -d gitlab-runner
+docker compose --env-file .env.gitlab-runner logs -f gitlab-runner
 ```
 
 ### Paso 4 - Usar el runner en `.gitlab-ci.yml` (tags)
@@ -402,7 +382,7 @@ Referencias:
     `.gitlab/gitlab-ci-template-full.yml` y `.gitlab/gitlab-ci-template-full-local.yml`
     + `.gitlab-ci.yml` con la estructura final comentada
 
-En repos `-solution` existen dos soluciones finales:
+Como referencia de solución final existen dos variantes:
 - `.gitlab-ci-saas.yml` (SaaS con registries nativos)
 - `.gitlab-ci-local.yml` (runner local con servicios locales)
 Renombra el fichero que quieras usar a `.gitlab-ci.yml`.

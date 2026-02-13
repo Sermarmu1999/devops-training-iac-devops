@@ -314,44 +314,25 @@ En GitHub:
 Nota:
 - Para este curso lo vamos a ejecutar dentro de un contenedor con Docker Compose.
 
-### Paso 2 - Docker Compose del runner (plantilla)
-Crea un fichero `docker-compose.runner.yml` (por ejemplo en el repo IaC o en tu entorno local):
-```yaml
-version: "3.8"
+### Paso 2 - Usar el runner ya incluido en el stack IaC
+En `devops-training-iac-devops/docker-compose.yml` ya existe el servicio `github-runner` con perfil opcional `github-runner`.
 
-services:
-  gha-runner:
-    image: myoung34/github-runner:latest
-    restart: unless-stopped
-    environment:
-      # TODO: configura estas variables según el asistente de GitHub
-      REPO_URL: "https://github.com/<org>/<repo>"
-      RUNNER_NAME: "local-runner-01"
-      RUNNER_WORKDIR: "/tmp/runner"
-      RUNNER_LABELS: "self-hosted,linux,docker"
-      # Requiere token de registro (de GitHub) o PAT según el modo
-      ACCESS_TOKEN: "${GITHUB_RUNNER_TOKEN}"
-    volumes:
-      # Permite ejecutar docker/docker compose desde el runner usando el Docker del host
-      - /var/run/docker.sock:/var/run/docker.sock
-      - gha-runner-work:/tmp/runner
-    networks:
-      - devops_training_net
+Variables necesarias:
+- `GITHUB_RUNNER_REPO_URL` (ej. `https://github.com/<org>/<repo>`)
+- `GITHUB_RUNNER_TOKEN` (token de registro o PAT según tu estrategia)
+- `GITHUB_RUNNER_NAME` (opcional)
+- `GITHUB_RUNNER_LABELS` (opcional, recomendado: `self-hosted,linux,docker`)
 
-volumes:
-  gha-runner-work:
+Plantilla incluida:
+- `devops-training-iac-devops/.env.github-runner.example`
 
-networks:
-  # Reutiliza la red donde viven registry/artifactory en tu stack IaC (ajusta el nombre si cambia)
-  devops_training_net:
-    external: true
-```
-
-### Paso 3 - Ejecutar el runner
+### Paso 3 - Ejecutar el runner con Docker Compose
+Desde `devops-training-iac-devops/`:
 ```bash
-export GITHUB_RUNNER_TOKEN="<token>"
-docker compose -f docker-compose.runner.yml up -d
-docker compose -f docker-compose.runner.yml logs -f
+cp .env.github-runner.example .env.github-runner
+# Edita .env.github-runner con valores reales
+docker compose --env-file .env.github-runner --profile github-runner up -d github-runner
+docker compose --env-file .env.github-runner logs -f github-runner
 ```
 
 ### Paso 4 - Usar el runner en el workflow
