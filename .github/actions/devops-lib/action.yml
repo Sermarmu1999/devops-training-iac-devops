@@ -19,4 +19,10 @@ runs:
     - name: Execute command in CI container
       shell: bash
       run: |
-        docker run --rm -v ${{ github.workspace }}:/app -w /app ${{ inputs.image_name }} ${{ inputs.run_command }}
+        echo "Esquivando el problema de volúmenes DinD con copia directa..."
+        CID=$(docker create -w /app ${{ inputs.image_name }} ${{ inputs.run_command }})
+        docker cp . $CID:/app/
+        docker start -a $CID
+        EXIT_CODE=$(docker inspect $CID --format='{{.State.ExitCode}}')
+        docker rm $CID
+        exit $EXIT_CODE
