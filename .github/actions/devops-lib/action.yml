@@ -1,0 +1,22 @@
+name: 'DevOps Common Lib'
+description: 'Build tools and run commands inside CI container'
+inputs:
+  image_name:
+    description: 'Nombre de la imagen de herramientas CI'
+    required: true
+  run_command:
+    description: 'Comando a ejecutar dentro del contenedor'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build CI tools image
+      shell: bash
+      run: |
+        docker build -t ${{ inputs.image_name }} -f devops/ci.Dockerfile .
+
+    - name: Execute command in CI container
+      shell: bash
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/app ${{ inputs.image_name }}
