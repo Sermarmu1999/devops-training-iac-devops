@@ -19,4 +19,4 @@ runs:
     - name: Execute command in CI container
       shell: bash
       run: |
-        docker run --rm -v ${{ github.workspace }}:/app ${{ inputs.image_name }}
+        docker run --rm -v ${{ github.workspace }}:/app -w /app ${{ inputs.image_name }} ${{ inputs.run_command }}
